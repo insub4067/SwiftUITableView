@@ -11,8 +11,7 @@ struct SwiftUITableView<T: Identifiable>: UIViewRepresentable {
     
     typealias UIViewType = UITableView
     
-    var items: [T]
-    let refreshControl = UIRefreshControl()
+    @EnvironmentObject var viewModel: ContentViewModel
     
     func makeUIView(context: Context) -> UITableView {
         context.coordinator.set()
@@ -24,18 +23,19 @@ struct SwiftUITableView<T: Identifiable>: UIViewRepresentable {
     }
     
     func makeCoordinator() -> Coordinator<T> {
-        Coordinator.init(items: items)
+        Coordinator.init(parent: self)
     }
     
     @MainActor
     class Coordinator<T: Identifiable>: NSObject, UITableViewDataSource, UITableViewDelegate {
 
+        let parent: SwiftUITableView
+        
         var tableView: UITableView!
         let refreshControl = UIRefreshControl()
-        var items: [T]
         
-        init(items: [T]) {
-            self.items = items
+        init(parent: SwiftUITableView) {
+            self.parent = parent
         }
         
         func set() {
@@ -51,19 +51,20 @@ struct SwiftUITableView<T: Identifiable>: UIViewRepresentable {
         
         @objc func didPullRefresh() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.items.append(Person(emoji: "🥰", name: "Love", age: 99) as! T)
+                self.parent.viewModel.getMorePeople()
                 self.tableView.reloadData()
                 self.refreshControl.endRefreshing()
             }
         }
 
         func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-            self.items.count
+            parent.viewModel.people.count
         }
 
         func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
             let cell = tableView.dequeueReusableCell(withIdentifier: "SwiftUICell<CellView>", for: indexPath) as! SwiftUICell<CellView>
-            let view = CellView(person: items[indexPath.row] as! Person)
+            let person = parent.viewModel.people[indexPath.row]
+            let view = CellView(person: person)
             cell.set(rooteView: view)
             return cell
         }
